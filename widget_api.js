@@ -42,11 +42,11 @@ async function checkSubdomainStatus(url) {
 }
 
 app.get("/api/status", async (req, res) => {
-  // Inbound security guardrail check
-  if (req.headers["x-widget-secret"] !== SECRET_KEY) {
+  const inboundSecret = req.query.secret || req.headers["x-widget-secret"];
+
+  if (inboundSecret !== SECRET_KEY) {
     return res.status(403).json({ error: "Unauthorized access token mapping" });
   }
-
   try {
     // 1. Automatically fetch all A, AAAA, and CNAME records from Cloudflare
     const cfResponse = await axios.get(
