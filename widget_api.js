@@ -23,20 +23,30 @@ async function checkSubdomainStatus(url) {
       timeout: 4000, // 4-second timeout limit per subdomain
       headers: { "User-Agent": "JarvisWidgetMonitor/1.0" },
       validateStatus: function (status) {
-        // Resolve the promise for ANY status code (2xx, 3xx, 4xx, 5xx).
-        // Even a 401 Unauthorized or 403 Forbidden means the container is up and responding!
+        // Keep resolving for all statuses so we can parse the specific 5xx codes
         return true;
       },
     });
 
-    // Cloudflare returns 521, 522, or 523 if the tunnel/origin server goes down
-    if ([521, 522, 523].includes(response.status)) {
+    // Define a strict block list of infrastructure and gateway failure codes
+    const offlineStatusCodes = [
+      502, // Bad Gateway (Container is dead/crashed)
+      503, // Service Unavailable (Overloaded or down for maintenance)
+      504, // Gateway Timeout (Container is frozen/unresponsive)
+      521, // Cloudflare Error: Web Server Is Down
+      522, // Cloudflare Error: Connection Timed Out
+      523, // Cloudflare Error: Origin Is Unreachable
+      524, // Cloudflare Error: A Timeout Occurred
+    ];
+
+    if (offlineStatusCodes.includes(response.status)) {
       return "OFFLINE";
     }
 
+    // Standard 2xx, 3xx, and app-level blocks (401, 403, 404) mean the container is actively responding
     return "ONLINE";
   } catch (error) {
-    // Catch connection refused, DNS resolution drops, or severe timeouts
+    // Catches deep connection resets, absolute network drops, or DNS failures
     return "OFFLINE";
   }
 }
